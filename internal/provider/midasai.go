@@ -1,3 +1,5 @@
+//go:build midas
+
 package provider
 
 import (
@@ -282,4 +284,19 @@ func (t *midasChatTransport) Chat(ctx context.Context, system, user string, time
 		return "", fmt.Errorf("midas ai: %s", result.ErrorMessage)
 	}
 	return text, nil
+}
+
+func buildMidas(cfg config.Config, wantVision bool) (DecisionProvider, VisionProvider, error) {
+	transport, err := NewMidasChatTransport(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	var vision VisionProvider
+	if wantVision {
+		vision, err = NewMidasVision(cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return NewCompatDecisionsWith(transport, cfg.CompatModel), vision, nil
 }

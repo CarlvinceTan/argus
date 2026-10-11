@@ -93,19 +93,10 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 			vision = NewLocalVision(cfg)
 		}
 	case "midasai":
-		// The LLM tier through Midas's own model layer (pkg/ai): the same
-		// provider adapters and streaming the rest of the toolchain uses.
-		transport, err := NewMidasChatTransport(cfg)
+		var err error
+		decisions, vision, err = buildMidas(cfg, wantVision)
 		if err != nil {
 			return Set{}, err
-		}
-		decisions = NewCompatDecisionsWith(transport, cfg.CompatModel)
-		if wantVision {
-			midasVision, err := NewMidasVision(cfg)
-			if err != nil {
-				return Set{}, err
-			}
-			vision = midasVision
 		}
 	case "opensource":
 		// The open-source stand-in for Jev: a self-hosted llama.cpp model whose

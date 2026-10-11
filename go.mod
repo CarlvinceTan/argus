@@ -10,10 +10,7 @@ require (
 
 require (
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
-	github.com/CarlvinceTan/midas v0.0.0
 	github.com/creack/pty v1.1.24
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	golang.org/x/image v0.46.0
 )
-
-replace github.com/CarlvinceTan/midas => ../midas
