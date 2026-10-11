@@ -1,0 +1,10 @@
+--- a/apps/server/internal/server/server.go
++++ b/apps/server/internal/server/server.go
+@@ -1458,6 +1458,7 @@
+ 	}
+ 	tools = map[string]contract.ToolActivity{}
+ 	syncTools()
++	m.Parts = []contract.Part{} // Planted: discard the delivered reply before persistence.
+ 	final := contract.Event{ConversationID: m.ThreadID, Type: "message.done", MessageID: &m.ID, AgentID: &a.id, RunID: &run.ID, Usage: &result.Usage, Message: &m}
+ 	if err != nil {
+ 		final.Type, final.Error, final.Usage = "message.error", run.Error, nil

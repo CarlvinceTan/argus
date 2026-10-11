@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "description": "B1: complete deterministic server eval suite with fake model emulator; macOS, iOS and site UI lanes are not run. Clean commits are pinned main revisions with no known server defects. Findings match class + flow + parent test. Caught requires 3/3 runs; clean false positives are the union. Skipped tests are coverage gaps, never caught bugs.",
+  "builds": [
+    {
+      "id": "clean-approval",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "layer": "server",
+      "expected": []
+    },
+    {
+      "id": "clean-skills",
+      "commit": "4f85d0d48021275278ff8c3b6e243dea792ae5c3",
+      "layer": "server",
+      "expected": []
+    },
+    {
+      "id": "clean-privacy",
+      "commit": "aea66c796932d359783059ebd35040df6c294333",
+      "layer": "server",
+      "expected": []
+    },
+    {
+      "id": "dropped-reply",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "patch": "patches/dropped-reply.patch",
+      "layer": "agent",
+      "flow": "T2",
+      "expected": [
+        {
+          "class": "reply_integrity",
+          "flow": "T2",
+          "test": "TestT2EndTurn"
+        }
+      ]
+    },
+    {
+      "id": "reply-stuck-streaming",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "patch": "patches/reply-stuck-streaming.patch",
+      "layer": "server",
+      "flow": "T2",
+      "expected": [
+        {
+          "class": "reply_integrity",
+          "flow": "T2",
+          "test": "TestT2EndTurn"
+        },
+        {
+          "class": "reply_integrity",
+          "flow": "T3",
+          "test": "TestT3MidTurnUserMessage"
+        }
+      ]
+    },
+    {
+      "id": "missing-reply-link",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "patch": "patches/missing-reply-link.patch",
+      "layer": "server",
+      "flow": "T2",
+      "expected": [
+        {
+          "class": "reply_integrity",
+          "flow": "T2",
+          "test": "TestT2EndTurn"
+        }
+      ]
+    },
+    {
+      "id": "cancel-recorded-failed",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "patch": "patches/cancel-recorded-failed.patch",
+      "layer": "server",
+      "flow": "T4",
+      "expected": [
+        {
+          "class": "reply_integrity",
+          "flow": "T4",
+          "test": "TestT4Cancel"
+        }
+      ]
+    },
+    {
+      "id": "silent-provider-failure",
+      "commit": "577f78fd0ca672b444498e1be3574088f710edc7",
+      "patch": "patches/silent-provider-failure.patch",
+      "layer": "agent",
+      "flow": "X4",
+      "expected": [
+        {
+          "class": "recovery",
+          "flow": "X4",
+          "test": "TestX4ProviderErrors"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+--- a/apps/server/internal/server/server.go
++++ b/apps/server/internal/server/server.go
+@@ -1430,7 +1430,7 @@
+ 		}
+ 		run.Status, run.Summary = "failed", "Reply failed"
+ 		if code == "stopped" {
+-			run.Status, run.Summary = "cancelled", "Reply stopped"
++			run.Status, run.Summary = "failed", "Reply stopped"
+ 		}
+ 		if errors.Is(err, store.ErrMembers) {
+ 			code, message, run.Status, run.Summary = "membership", "Agent is no longer a member of this chat.", "cancelled", "Member removed"

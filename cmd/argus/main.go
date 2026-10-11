@@ -38,6 +38,11 @@ func main() {
 		os.Exit(2)
 	}
 	switch os.Args[1] {
+	case "bench":
+		if err := benchCommand(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "argus: %v\n", err)
+			os.Exit(1)
+		}
 	case "run":
 		if err := runCommand(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "argus: %v\n", err)
@@ -80,6 +85,7 @@ func usage() {
   argus run     --subject NAME --cmd "program args" [flags]
   argus canary  [--model-url URL] [--profile subject|eval]
   argus triage  label|list|stats|calibrate|reset
+  argus bench polymux --corpus benchmark/polymux --polymux CHECKOUT --out DIR
   argus version
 
 triage:

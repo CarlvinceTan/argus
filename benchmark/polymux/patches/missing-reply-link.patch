@@ -1,0 +1,11 @@
+--- a/apps/server/internal/server/server.go
++++ b/apps/server/internal/server/server.go
+@@ -941,7 +941,7 @@
+ 		m.ReplyToID = &user.ID
+ 	}
+ 	if work.Trigger != "review" {
+-		run.MessageID = &m.ID
++		run.MessageID = nil
+ 	}
+ 	appendEvent := func(kind string, delta *string, problem *contract.Error, usage *contract.Usage) error {
+ 		_, err := s.Store.Append(writeCtx, contract.Event{ConversationID: m.ThreadID, Type: kind, MessageID: &m.ID, AgentID: &a.id, RunID: &run.ID, Text: delta, Error: problem, Usage: usage}, &m)
