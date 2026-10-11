@@ -15,12 +15,13 @@ Go pipeline (cmd/argus, internal/*): pty harness -> terminal world model -> 10 d
 5. No scripted flows/fixtures (seeded data, reload, reconnect, fake clock).
 6. Not wired into goal-loop; no metrics file.
 
-## Drivers (decision: cvmac now; Xcode on cvmini recommended)
-- macOS app: build with `xcodebuild`, launch, drive through the Accessibility API (AXUIElement tree for screens, components, states; synthetic events for interaction) plus `screencapture` for pixels and short video for motion. New `internal/harness/macos` (small Swift helper binary + Go client), mirroring the x11-agent protocol.
-- iOS: `xcrun simctl` boots and installs; XCUITest-free driving through `simctl io screenshot/recordVideo` + an accessibility dump from a UI-test runner target (XCTest is the only supported tap/scroll path on the simulator).
-- Both need Xcode. cvmac has Xcode 27.0 with iOS 26.5/27.0 simulators but is a laptop that sleeps; cvmini (always on, where goal-loop runs) has no Xcode. Recommendation: install Xcode on cvmini (about 40 GB disk, one Apple ID sign-in, license accept with sudo). Until then the UI lane runs on cvmac via `pending-add` and is reported as "not run" when cvmac is away.
+## Drivers (target: cvmini; cvmac only as a temporary fallback)
+Carlvince is moving off cvmac. The UI lane targets cvmini, which gets Xcode and Screen Recording if he approves (Chief is asking, 12 Oct 2026). cvmini is always on and already runs goal-loop, so build, drive and capture happen on the same host as the tester.
+- macOS app: `python3 scripts/fetch_cua.py`, then `xcodebuild` (FlareHQ 23YB4896XA signing), launch, drive through the Accessibility API (AXUIElement tree for screens, components, states; synthetic events for interaction), `screencapture` for pixels and `screencapture -v` for motion. New `internal/harness/macos` (small Swift helper + Go client), mirroring the x11-agent protocol. Needs Screen Recording and Accessibility for the helper on cvmini.
+- iOS: `xcrun simctl` boots/installs; driving through an XCTest UI-runner target (the only supported tap/scroll path on the simulator) plus `simctl io screenshot/recordVideo`.
+- Until Xcode is on cvmini: headless ImageRenderer snapshots and the macOS build run on cvmac (Xcode 27, iOS 26.5/27 simulators) when it is awake; otherwise the UI lane reports "not run" and never passes a UI unit.
 - Go server / agent behaviour: reuse `apps/server/evals` (fake model emulator) as the behaviour lane; Argus calls it and adds flows for delegation, memory, routines, reconnect and reload against a real server process with a scripted model.
-- Web (site): Playwright headless on cvmini, same check set on DOM + screenshots.
+- Web (site): headless Chromium over CDP on cvmini (goal-loop site-shots.mjs), same check set on DOM + screenshots.
 
 ## Coverage map
 `coverage.yaml` in the Polymux repo (versioned with the app):
