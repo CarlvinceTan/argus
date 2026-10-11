@@ -1,0 +1,9 @@
+var/
+.delta/
+web/node_modules/
+web/dist/
+benchmark/subjects/
+benchmark/results*/
+*.log
+.env*
+.DS_Store

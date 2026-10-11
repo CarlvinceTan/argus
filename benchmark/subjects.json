@@ -1,0 +1,219 @@
+[
+  {
+    "id": "fzf-inline-right-truncation",
+    "title": "fzf: info line truncated although it fits",
+    "why": "fzf 0.65.2 changelog: 'Fix incorrect truncation of --info-command with --info=inline-right (#4479)'. The pre-fix binary cuts the info line and draws truncation markers while the row still has empty columns.",
+    "probe": "Start fzf with --info=inline-right and a short --info-command at 64 columns. The defect is visible on the first frame; no key sequence is required.",
+    "steps": 5,
+    "cols": 64,
+    "rows": 14,
+    "pre": {
+      "name": "fzf 0.65.1",
+      "version": "0.65.1",
+      "argv": [
+        "/bin/sh",
+        "-c",
+        "seq 1 500 | /var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus/benchmark/subjects/fzf-0.65.1/bin-fzf --info=inline-right --info-command='echo probe-info-line'"
+      ],
+      "workdir": "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus"
+    },
+    "post": {
+      "name": "fzf 0.65.2",
+      "version": "0.65.2",
+      "argv": [
+        "/bin/sh",
+        "-c",
+        "seq 1 500 | /var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus/benchmark/subjects/fzf-0.65.2/bin-fzf --info=inline-right --info-command='echo probe-info-line'"
+      ],
+      "workdir": "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus"
+    },
+    "ground_truth": [
+      {
+        "id": "gt-truncation",
+        "summary": "The inline-right info line is truncated and marked with truncation dots although the full value fits in the row.",
+        "classes": [
+          "truncation"
+        ],
+        "keywords": [
+          "truncat",
+          "clip",
+          "probe-info",
+          "info line",
+          "with room"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "quiet"
+      }
+    ]
+  },
+  {
+    "id": "btop-1.4.6-rendering-fixes",
+    "title": "btop: process-list redraw and border overflow fixes",
+    "why": "btop 1.4.6 changelog: '#1309 Fix redraw in proc list when changing sort order', '#1304 Fix load average and GPU watts leaking past box border', '#1367 Fix: Align boxes when Cpu bottom and Gpu on'.",
+    "probe": "Run btop at 110x32 and drive the process list: open the options menu, change sorting, and resize. Leaked values and stale rows are visible at the box borders.",
+    "steps": 8,
+    "cols": 110,
+    "rows": 32,
+    "pre": {
+      "name": "btop 1.4.5",
+      "version": "1.4.5",
+      "argv": [
+        "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus/benchmark/subjects/btop-1.4.5/bin/btop"
+      ],
+      "workdir": "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus"
+    },
+    "post": {
+      "name": "btop 1.4.6",
+      "version": "1.4.6",
+      "argv": [
+        "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus/benchmark/subjects/btop-1.4.6/bin/btop"
+      ],
+      "workdir": "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus"
+    },
+    "ground_truth": [
+      {
+        "id": "gt-proc-redraw",
+        "summary": "Changing the sort order leaves stale or duplicated process rows until something else forces a redraw.",
+        "classes": [
+          "duplication",
+          "layout_jitter",
+          "inconsistency"
+        ],
+        "keywords": [
+          "sort",
+          "proc",
+          "stale",
+          "duplicat",
+          "redraw"
+        ],
+        "expect_pre": "reported_or_candidate",
+        "expect_post": "quiet"
+      },
+      {
+        "id": "gt-border-overflow",
+        "summary": "A value (load average or GPU watts) is drawn past the box border, breaking the layout.",
+        "classes": [
+          "border",
+          "misalignment",
+          "overlap"
+        ],
+        "keywords": [
+          "border",
+          "leak",
+          "overflow",
+          "past the box",
+          "load average"
+        ],
+        "expect_pre": "reported_or_candidate",
+        "expect_post": "quiet"
+      }
+    ]
+  },
+  {
+    "id": "demo-tui-known-defects",
+    "title": "synthetic TUI with known injected defects (calibration)",
+    "why": "Calibration subject: every defect is known exactly, so a miss or an invented finding is unambiguous. Included to keep the model honest rather than to prove generalisation.",
+    "probe": "Start the demo and let it draw; it already contains a broken border, duplicated line, clipped path, low-contrast text, a mismatched progress bar, a stuck spinner and a flickering cell.",
+    "steps": 4,
+    "cols": 100,
+    "rows": 30,
+    "pre": {
+      "name": "defective-demo",
+      "version": "synthetic",
+      "argv": [
+        "/usr/bin/env",
+        "python3",
+        "testdata/defective-tui.py"
+      ],
+      "workdir": "/var/folders/w9/5ndj20cd6q3d67gp224bz16m0000gn/T/opencode/argus"
+    },
+    "post": null,
+    "ground_truth": [
+      {
+        "id": "gt-duplicate",
+        "summary": "The same line is printed twice.",
+        "classes": [
+          "duplication"
+        ],
+        "keywords": [
+          "duplicat",
+          "same line",
+          "twice"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      },
+      {
+        "id": "gt-border",
+        "summary": "Panel border is missing a side.",
+        "classes": [
+          "border"
+        ],
+        "keywords": [
+          "border",
+          "panel"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      },
+      {
+        "id": "gt-contrast",
+        "summary": "Secondary text is almost invisible.",
+        "classes": [
+          "readability"
+        ],
+        "keywords": [
+          "contrast",
+          "invisible",
+          "read"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      },
+      {
+        "id": "gt-progress",
+        "summary": "Progress bar disagrees with its percentage label.",
+        "classes": [
+          "inconsistency"
+        ],
+        "keywords": [
+          "progress",
+          "percent",
+          "bar",
+          "label"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      },
+      {
+        "id": "gt-spinner",
+        "summary": "Spinner glyph never advances while the screen says it is loading.",
+        "classes": [
+          "animation"
+        ],
+        "keywords": [
+          "spinner",
+          "stuck",
+          "advance",
+          "loading"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      },
+      {
+        "id": "gt-flicker",
+        "summary": "A cell alternates between frames, which reads as flicker.",
+        "classes": [
+          "animation"
+        ],
+        "keywords": [
+          "flicker",
+          "alternat",
+          "back and forth"
+        ],
+        "expect_pre": "reported",
+        "expect_post": "skipped"
+      }
+    ]
+  }
+]
