@@ -21,7 +21,7 @@ model-driven test agent running inside Polymux.
   argus ...
   ```
 
-- **Open item:** confirm the OpenCode Go base URL and how the key is supplied.
+- **Open item (tracked; see the Open items list in RUN.md section 5):** confirm the OpenCode Go base URL and how the key is supplied.
   OpenCode keeps the Go credential in its auth store, but
   `loadOpenCodeProviderKey` only reads `opencode.json` provider options, so the
   key is not picked up automatically. A native `--provider opencodego` should
@@ -32,11 +32,14 @@ model-driven test agent running inside Polymux.
 ## Reference account: UniMelb student Grok Bot
 
 - The Grok Bot reference for Polymux testing is the **UniMelb student
-  account's Grok Bot**. It is not the Outlook account and not the main account.
+  account's Grok Bot** (carlvincet@student.unimelb.edu.au). It is not the Outlook account and not the main account.
 - **Cleanup is part of every test session (required).** When an Argus session
   ends, pass or fail, delete every test conversation, agent and artifact that
-  the session created on that Grok Bot. Record what was cleaned up, or that
+  the session created on that Grok Bot. Delete only what the session created;
+  never touch pre-existing items. Record what was cleaned up, or that
   nothing was created, in the run report. A session without that record is
   incomplete.
 - Test sessions use only the student account. Never the main account's logins,
   keys or keychain.
+- Run the student account in a separate browser profile, never the main
+  account's profile.
