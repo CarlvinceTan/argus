@@ -120,3 +120,7 @@ wails3 build            # produces bin/argusview
 Backlog sorted by severity, grouping by page/feature, annotated stills with a
 region overlay, frame strips and video clips, candidate traces, review buttons
 with a note field, and a learning panel showing per-check precision.
+
+## 5. Polymux testing
+
+Polymux test sessions use the OpenCode Go subscription as the model, and the UniMelb student Grok Bot as the reference account. After every session, the test conversations, agents and artifacts the session created on that Grok Bot must be cleaned up. See [docs/polymux-testing.md](docs/polymux-testing.md).
