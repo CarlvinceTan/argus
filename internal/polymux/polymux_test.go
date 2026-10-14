@@ -84,7 +84,7 @@ func TestFullLaneAndMetricsAppend(t *testing.T) {
 	}
 	for n := 0; n < 2; n++ {
 		result, err := Run(context.Background(), Options{Repo: repo, Out: out, Quick: n == 1}, runner)
-		if err != nil || result.Findings != 0 {
+		if err != nil || result.Findings != 0 || !result.Complete {
 			t.Fatalf("result %+v err %v", result, err)
 		}
 	}
@@ -180,7 +180,7 @@ func TestFailureSkipAndSeededRate(t *testing.T) {
 }
 
 func TestIncompleteStreamsFailClosed(t *testing.T) {
-	for _, kind := range []string{"empty", "malformed", "truncated", "build_failure", "startup", "package_skip"} {
+	for _, kind := range []string{"empty", "malformed", "truncated", "build_failure", "startup", "package_skip", "missing_eval", "exit_mismatch"} {
 		t.Run(kind, func(t *testing.T) {
 			repo, out := fixture(t)
 			runner := func(_ context.Context, _ string, _ []string, w io.Writer) error {
@@ -199,15 +199,42 @@ func TestIncompleteStreamsFailClosed(t *testing.T) {
 					return errors.New("go unavailable")
 				case "package_skip":
 					emit(w, "skip", "", 0)
+				case "missing_eval", "exit_mismatch":
+					emit(w, "pass", "TestT2EndTurn", 0.1)
+					emit(w, "pass", "TestC4NoDuplicateSideEffects", 0.1)
+					emit(w, "pass", "TestM1ScopedRecall", 0.1)
+					if kind == "exit_mismatch" {
+						emit(w, "pass", "TestHelperCheck", 0.1)
+					}
+					emit(w, "pass", "", 0.4)
+					if kind == "exit_mismatch" {
+						return errors.New("exit status 1")
+					}
 				}
 				return nil
 			}
 			result, err := Run(context.Background(), Options{Repo: repo, Out: out}, runner)
-			if err != nil || result.Findings == 0 {
+			if err != nil || result.Findings == 0 || result.Complete {
 				t.Fatalf("result %+v err %v", result, err)
 			}
 			_ = readCoverage(t, out)
 		})
+	}
+}
+
+func TestCompletedFailingSuiteIsObservable(t *testing.T) {
+	repo, out := fixture(t)
+	runner := func(_ context.Context, _ string, _ []string, w io.Writer) error {
+		emit(w, "fail", "TestT2EndTurn", 0.1)
+		for _, name := range []string{"TestC4NoDuplicateSideEffects", "TestM1ScopedRecall", "TestHelperCheck"} {
+			emit(w, "pass", name, 0.1)
+		}
+		emit(w, "fail", "", 0.4)
+		return errors.New("exit status 1")
+	}
+	result, err := Run(t.Context(), Options{Repo: repo, Out: out}, runner)
+	if err != nil || !result.Complete || result.Outcomes["TestT2EndTurn"] != "fail" || result.Findings != 1 {
+		t.Fatalf("completed failing suite: %+v %v", result, err)
 	}
 }
 

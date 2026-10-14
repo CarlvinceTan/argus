@@ -1,0 +1,11 @@
+--- a/apps/server/internal/server/server.go
++++ b/apps/server/internal/server/server.go
+@@ -1391,7 +1391,7 @@
+ 			text := "Handed off to " + bounded(label, 128) + "."
+ 			m.Parts = append(m.Parts, contract.Part{Kind: "text", Text: &text})
+ 		}
+-		m.Status = "done"
++		m.Status = "streaming"
+ 		run.Status, run.Summary, run.Outcome = "completed", "Reply complete", pointer("reply")
+ 		if work.Trigger == "created" {
+ 			run.Outcome = pointer("introduced")

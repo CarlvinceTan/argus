@@ -45,6 +45,10 @@ type Options struct {
 type Result struct {
 	Findings int
 	Duration float64
+	// Complete distinguishes a completed failing suite from infrastructure failure.
+	Complete  bool
+	Outcomes  map[string]string
+	Resources []string
 }
 
 // Executor is injectable so tests exercise real go-test JSON without a server.
@@ -60,6 +64,32 @@ func execute(ctx context.Context, dir string, args []string, out io.Writer) erro
 }
 
 var evalName = regexp.MustCompile(`^Test([TCBMRGX][1-9][0-9]*)(?:$|[^0-9].*)`)
+
+// ClassifyTest maps the server lane's PARITY test names to finding classes and
+// flows. Agent behaviours run in this same server process during B1.
+func ClassifyTest(test string) (class, flow string) {
+	class, flow = "server_eval", test
+	if match := evalName.FindStringSubmatch(test); match != nil {
+		flow = match[1]
+		switch flow[0] {
+		case 'T':
+			class = "reply_integrity"
+		case 'C':
+			class = "tool_contract"
+		case 'B':
+			class = "delegation"
+		case 'M':
+			class = "memory"
+		case 'R':
+			class = "routine"
+		case 'G':
+			class = "group"
+		case 'X':
+			class = "recovery"
+		}
+	}
+	return class, flow
+}
 
 func catalog(repo string) ([]Item, error) {
 	var items []Item
@@ -102,15 +132,15 @@ func catalog(repo string) ([]Item, error) {
 			if !ok || fn.Recv != nil {
 				continue
 			}
-			match := evalName.FindStringSubmatch(fn.Name.Name)
-			if match == nil {
+			class, flow := ClassifyTest(fn.Name.Name)
+			if class == "server_eval" {
 				continue
 			}
-			i, ok := index[match[1]]
+			i, ok := index[flow]
 			if !ok {
 				i = len(items)
-				index[match[1]] = i
-				items = append(items, Item{ID: match[1], Lane: "server", LastResult: "not_run", Gaps: []string{}, Source: []string{}})
+				index[flow] = i
+				items = append(items, Item{ID: flow, Lane: "server", LastResult: "not_run", Gaps: []string{}, Source: []string{}})
 			}
 			items[i].tests = append(items[i].tests, fn.Name.Name)
 			source := "apps/server/evals/" + entry.Name()
@@ -182,6 +212,9 @@ func parseStream(r io.Reader, outcomes map[string]outcome) (bool, bool, error) {
 			continue
 		}
 		if e.Test == "" {
+			if packageDone {
+				return false, false, fmt.Errorf("unexpected multiple package completions")
+			}
 			packageDone = true
 			if e.Action != "pass" {
 				packageFailed = true
@@ -190,6 +223,9 @@ func parseStream(r io.Reader, outcomes map[string]outcome) (bool, bool, error) {
 		}
 		if strings.Contains(e.Test, "/") {
 			continue
+		}
+		if _, duplicate := outcomes[e.Test]; duplicate {
+			return false, false, fmt.Errorf("duplicate test completion")
 		}
 		outcomes[e.Test] = outcome{e.Action, e.Elapsed}
 	}
@@ -260,17 +296,45 @@ func Run(ctx context.Context, opts Options, runner Executor) (Result, error) {
 	}
 	outcomes := map[string]outcome{}
 	infrastructure := false
+	complete := true
 	for _, args := range batches {
 		var stream bytes.Buffer
 		runErr := runner(ctx, filepath.Join(repo, "apps", "server"), args, &stream)
-		done, failed, parseErr := parseStream(&stream, outcomes)
+		batch := map[string]outcome{}
+		done, failed, parseErr := parseStream(&stream, batch)
+		failures := 0
+		for name, o := range batch {
+			if o.result == "fail" {
+				failures++
+			}
+			if _, duplicate := outcomes[name]; duplicate {
+				complete = false
+			}
+			outcomes[name] = o
+		}
+		if !done || parseErr != nil || (failed && failures == 0) || (failed != (runErr != nil)) {
+			complete = false
+		}
 		if runErr != nil || !done || failed || parseErr != nil {
 			infrastructure = true
 		}
 	}
-	result := Result{}
+	names, err := allTests(repo)
+	if err != nil {
+		return Result{}, err
+	}
+	if len(names) == 0 {
+		complete = false
+	}
+	for _, name := range names {
+		if _, ok := outcomes[name]; !ok {
+			complete = false
+		}
+	}
+	result := Result{Complete: complete, Outcomes: map[string]string{}, Resources: []string{"process:argus", "process:go-test", "host:local"}}
 	failedTests := 0
-	for _, o := range outcomes {
+	for name, o := range outcomes {
+		result.Outcomes[name] = o.result
 		if o.result == "fail" {
 			failedTests++
 		}
@@ -313,7 +377,7 @@ func Run(ctx context.Context, opts Options, runner Executor) (Result, error) {
 			caught++
 		}
 	}
-	if len(outcomes) == 0 || infrastructure {
+	if !complete || len(outcomes) == 0 || infrastructure {
 		// A package-only build failure, malformed/truncated stream or startup error
 		// must fail even if no individual test reported a failure.
 		if failedTests == 0 {
@@ -321,7 +385,7 @@ func Run(ctx context.Context, opts Options, runner Executor) (Result, error) {
 			items = append(items, Item{ID: "server", Lane: "server", LastResult: "fail", Gaps: []string{"go test did not complete successfully"}, Source: []string{"apps/server/evals/*.go"}})
 		}
 	}
-	loc, err := goLOC(repo)
+	loc, err := GoLOC(repo)
 	if err != nil {
 		return result, err
 	}
@@ -341,7 +405,7 @@ func Run(ctx context.Context, opts Options, runner Executor) (Result, error) {
 		rate = strconv.FormatFloat(float64(caught)/float64(len(seeded)), 'f', 6, 64)
 	}
 	// Two processes (Argus and go test), no models, one local host.
-	const movingParts = 3
+	movingParts := len(result.Resources)
 	metrics, err := os.OpenFile(filepath.Join(opts.Out, "metrics.tsv"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return result, err
@@ -381,7 +445,7 @@ func allTests(repo string) ([]string, error) {
 
 // Count physical Go source lines, including tests; generated/vendor/build output
 // is excluded so simplicity measures maintained repository code.
-func goLOC(repo string) (int, error) {
+func GoLOC(repo string) (int, error) {
 	total := 0
 	err := filepath.WalkDir(repo, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {

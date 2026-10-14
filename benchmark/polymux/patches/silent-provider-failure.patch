@@ -1,0 +1,12 @@
+--- a/apps/server/internal/server/server.go
++++ b/apps/server/internal/server/server.go
+@@ -1443,6 +1443,9 @@
+ 			message = "The model took too long to reply."
+ 		}
+ 		run.Error = &contract.Error{Code: code, Message: message}
++		if code == "provider" {
++			run.Error = nil
++		}
+ 	}
+ 	now = store.Now()
+ 	run.Activity, run.FinishedAt = "", &now
