@@ -38,6 +38,8 @@ func main() {
 		os.Exit(2)
 	}
 	switch os.Args[1] {
+	case "polymux":
+		os.Exit(polymuxCommand(os.Args[2:], os.Stdout, os.Stderr))
 	case "run":
 		if err := runCommand(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "argus: %v\n", err)
@@ -80,6 +82,7 @@ func usage() {
   argus run     --subject NAME --cmd "program args" [flags]
   argus canary  [--model-url URL] [--profile subject|eval]
   argus triage  label|list|stats|calibrate|reset
+  argus polymux --repo DIR [--changed FILES] [--quick] --out DIR
   argus version
 
 triage:
@@ -811,7 +814,12 @@ type stringSliceFlag struct {
 	target *[]string
 }
 
-func (s stringSliceFlag) String() string { return strings.Join(*s.target, " ") }
+func (s stringSliceFlag) String() string {
+	if s.target == nil {
+		return ""
+	}
+	return strings.Join(*s.target, " ")
+}
 
 func (s stringSliceFlag) Set(value string) error {
 	*s.target = append(*s.target, value)
