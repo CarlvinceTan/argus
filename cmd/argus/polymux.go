@@ -16,6 +16,9 @@ import (
 )
 
 func polymuxCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "ui" {
+		return polymuxUICommand(args[1:], stdout, stderr)
+	}
 	start := time.Now()
 	fs := flag.NewFlagSet("polymux", flag.ContinueOnError)
 	fs.SetOutput(stderr)

@@ -34,14 +34,18 @@ const (
 	// and has a vision tower, so the calibrated tier can read screenshots.
 	DiffusionGemmaEndpoint = "https://6ab255d535c41fcea4a331db.endpoints.huggingface.cloud/v1/systemone"
 	DiffusionGemmaModel    = "jev-latest"
-	DefaultCommandModel    = "deepseek/deepseek-v4.1-flash"
-	DefaultCommandVision   = "deepseek/deepseek-v4-flash-vision-exp"
-	opencodeConfigFile     = ".config/opencode/opencode.jsonc"
-	DefaultLocalModel      = "local-decider"
-	DefaultLocalVision     = "local-vision"
-	opencodeAuthFile       = ".local/share/opencode/auth.json"
-	cacheDirPermissions    = 0o755
-	outputDirPermissions   = 0o755
+	// OpenCode serves TypeSafe Jev on its Console (Zen) API with the native
+	// System One schema; jev-1.13-free is a limited-time free model.
+	OpenCodeSystemOne    = "https://opencode.ai/inference/systemone/v1/systemone"
+	OpenCodeJevModel     = "jev-1.13"
+	DefaultCommandModel  = "deepseek/deepseek-v4.1-flash"
+	DefaultCommandVision = "deepseek/deepseek-v4-flash-vision-exp"
+	opencodeConfigFile   = ".config/opencode/opencode.jsonc"
+	DefaultLocalModel    = "local-decider"
+	DefaultLocalVision   = "local-vision"
+	opencodeAuthFile     = ".local/share/opencode/auth.json"
+	cacheDirPermissions  = 0o755
+	outputDirPermissions = 0o755
 )
 
 // Limits bounds a run so it can never wander or spend without bound.
@@ -87,6 +91,7 @@ type Config struct {
 	CompatBaseURL string `json:"compat_base_url"`
 	CompatModel   string `json:"compat_model"`
 	CompatKey     string `json:"-"`
+	OpenCodeKey   string `json:"-"`
 
 	Limits     Limits     `json:"limits"`
 	Thresholds Thresholds `json:"thresholds"`
@@ -169,6 +174,7 @@ func (c *Config) Load() error {
 	}
 
 	c.OpenRouter = loadOpenRouterKey()
+	c.OpenCodeKey = firstNonEmpty(os.Getenv("OPENCODE_API_KEY"), loadOpenCodeAuthKey("opencode"), loadOpenCodeAuthKey("opencode-go"))
 	c.CompatKey = firstNonEmpty(
 		os.Getenv("ARGUS_COMPAT_API_KEY"),
 		loadOpenCodeProviderKey("commandcode"),
@@ -229,6 +235,11 @@ func (c *Config) ApplyProviderDefaults() {
 		}
 		c.VisionBaseURL = c.CompatBaseURL
 		c.VisionKey = firstNonEmpty(os.Getenv("ARGUS_VISION_API_KEY"), c.CompatKey)
+	case "opencode":
+		c.JevEndpoint = firstNonEmpty(os.Getenv("ARGUS_JEV_ENDPOINT"), OpenCodeSystemOne)
+		if os.Getenv("ARGUS_JEV_MODEL") == "" {
+			c.JevModel = OpenCodeJevModel
+		}
 	case "local", "opensource":
 		if os.Getenv("ARGUS_JEV_ENDPOINT") == "" {
 			c.JevEndpoint = c.LocalBaseURL
@@ -332,6 +343,27 @@ func isTruthy(raw string) bool {
 
 // loadOpenRouterKey reuses the key the local opencode install already stores so
 // no secret needs to live in this repository.
+// loadOpenCodeAuthKey reads one provider's API key from opencode's auth store
+// (written by `opencode auth login`).
+func loadOpenCodeAuthKey(provider string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	raw, err := os.ReadFile(filepath.Join(home, opencodeAuthFile))
+	if err != nil {
+		return ""
+	}
+	var store map[string]struct {
+		Type string `json:"type"`
+		Key  string `json:"key"`
+	}
+	if err := json.Unmarshal(raw, &store); err != nil || store[provider].Type != "api" {
+		return ""
+	}
+	return strings.TrimSpace(store[provider].Key)
+}
+
 func loadOpenRouterKey() string {
 	for _, name := range []string{"OPENROUTER_API_KEY", "OPENROUTER_KEY"} {
 		if value := strings.TrimSpace(os.Getenv(name)); value != "" {

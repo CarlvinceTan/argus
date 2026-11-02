@@ -252,6 +252,12 @@ func (s *Session) Finalise(duration time.Duration, frames, actions int) {
 	ApplyReportingPolicy(s)
 }
 
+// Tags linking a finding to the app's intent ledger.
+const (
+	TagIntent      = "intent:"
+	TagStaleIntent = "intent_stale:"
+)
+
 // MaxReportedPerGroup keeps a backlog readable: a page with fifty findings is a
 // page nobody triages. Everything beyond the cap stays in run.json.
 const MaxReportedPerGroup = 5
@@ -309,7 +315,8 @@ func ApplyReportingPolicy(s *Session) {
 	perGroup := map[string]int{}
 	for _, candidate := range ranked {
 		finding := &s.Findings[findIndex(s.Findings, candidate.ID)]
-		if !finding.Reported {
+		// The cap limits speculation; a measured fact isn't noise however many there are.
+		if !finding.Reported || finding.Verified == "deterministic" {
 			continue
 		}
 		if (finding.Check == "screen" || strings.HasPrefix(finding.Check, "policy")) && covered[key{finding.Group, finding.Class}] {

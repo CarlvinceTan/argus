@@ -90,7 +90,7 @@ func (a *Auditor) AuditGUI(ctx context.Context, in GUIAuditInput) AuditResult {
 			"detail": motionDetailStringsGUI(in.Motion),
 		},
 		"candidates": candidateSummariesGUI(in.Motion.Evidence),
-		"policy":     knowledge.Policy + "\n" + guiPolicy,
+		"policy":     knowledge.Policy + "\n" + guiPolicy + a.intents.Policy(),
 	}
 
 	questions := map[string]jev.Question{}
@@ -194,7 +194,7 @@ func (a *Auditor) directImageDecision(
 	}
 	state := map[string]any{
 		"app":    map[string]any{"name": in.Subject.Name, "kind": "GUI"},
-		"policy": knowledge.Policy + "\n" + guiPolicy,
+		"policy": knowledge.Policy + "\n" + guiPolicy + a.intents.Policy(),
 		"tiles":  grid.Describe(),
 	}
 	repeats := a.cfg.Thresholds.TemporalRepeats
@@ -562,6 +562,36 @@ func guiCheckName(check string) string {
 		return "content drifts while idle"
 	case sensors.GUIIdleChurn:
 		return "window repaints while idle"
+	case sensors.AXUnlabelled:
+		return "control has no accessible name"
+	case sensors.AXOverlap:
+		return "controls overlap"
+	case sensors.AXClipped:
+		return "control outside the window"
+	case sensors.AXSmallHit:
+		return "control is too small to hit"
+	case sensors.AXCutText:
+		return "label looks cut off"
+	case sensors.AXBlank:
+		return "window is blank"
+	case sensors.AXInert:
+		return "control does nothing"
+	case sensors.AXCrash:
+		return "app crashed"
+	case sensors.AXFlash:
+		return "state flashed past"
+	case sensors.AXShift:
+		return "unrelated control moved"
+	case sensors.LogWarning:
+		return "runtime warning"
+	case sensors.DriftAdded:
+		return "new on screen since the baseline"
+	case sensors.DriftGone:
+		return "gone since the baseline"
+	case sensors.DriftMoved:
+		return "moved since the baseline"
+	case sensors.DriftPixels:
+		return "looks different from the baseline"
 	default:
 		return strings.ReplaceAll(check, "_", " ")
 	}

@@ -1,0 +1,69 @@
+Planted UI bugs, one flag each, so that every native check can be proved on the real app.
+Apply to a copy of Polymux, never the working tree. Add these flows beside them, then run
+argus polymux ui --repo COPY --control REAL_CHECKOUT --changed e2e/flows/fixture-seed-*.js
+  fixture-seed-layout.js: // @fixture --verify-fixture --verify-tools --seed-overlap --seed-clip --seed-unlabelled --seed-inert
+  fixture-seed-crash.js:  // @fixture --verify-fixture --verify-tools --seed-crash
+  fixture-seed-perf.js:   // @fixture --verify-fixture --verify-tools --seed-flash --seed-shift --seed-slow --seed-warning
+
+--- a/apps/Polymux/Sources/Views/ComposerView.swift
++++ b/apps/Polymux/Sources/Views/ComposerView.swift
+@@ -229,7 +229,8 @@
+                 }
+                 .buttonStyle(.plain).frame(width: controlSize, height: controlSize)
+                 .glassEffect(.regular.interactive(), in: Circle())
+-                .accessibilityLabel("Add attachment")
++                .accessibilityLabel(CommandLine.arguments.contains("--seed-unlabelled") ? "" : "Add attachment")
++                .offset(x: CommandLine.arguments.contains("--seed-overlap") ? 20 : 0)
+                 .popover(isPresented: $attachments, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
+                     VStack(alignment: .leading, spacing: 0) {
+                         attachmentButton("Files", icon: "doc") { importing = true }
+--- a/apps/Polymux/Sources/Views/ChatPane.swift
++++ b/apps/Polymux/Sources/Views/ChatPane.swift
+@@ -249,10 +249,15 @@
+         .overlay(alignment: .top) {
+             if !showSearch {
+                 ZStack(alignment: .top) {
++                    SeedFlash(id: thread.id)
+                     ChatHeader(title: chatTitle, subtitle: headerRole, members: members,
+                                isGroup: thread.isGroup, conversationID: thread.id, runs: store.runs, activity: store.activity,
+                                connected: session.sidebar.isConnected,
+-                               edit: { showProfile.toggle() })
++                               edit: {
++                                   if CommandLine.arguments.contains("--seed-crash") { fatalError("seeded crash") }
++                                   if CommandLine.arguments.contains("--seed-slow") { Thread.sleep(forTimeInterval: 0.9) }
++                                   if !CommandLine.arguments.contains("--seed-inert") { showProfile.toggle() }
++                               })
+                         .padding(.top, 8)
+                         .offset(y: -headerInset)
+                         .accessibilityLabel(thread.isGroup ? "Edit chat" : "Edit \(agent.name)’s profile")
+@@ -318,6 +323,8 @@
+                         PluginButtons(groups: pluginGroups, selected: pluginPanel, open: togglePlugin)
+                         PanelNavButton(symbol: "phone", label: "Speech conversation",
+                                        enabled: !openingVoice && !showVoice, action: openVoice)
++                            .offset(x: CommandLine.arguments.contains("--seed-clip") ? 60 : 0)
++                            .offset(y: CommandLine.arguments.contains("--seed-shift") ? CGFloat(thread.id.count % 5) * 6 : 0)
+                     }
+                 }
+             }
+@@ -1274,3 +1281,21 @@
+     }
+ }
+ #endif
++
++struct SeedFlash: View {
++    let id: String
++    @State private var show = false
++    var body: some View {
++        Color.clear.frame(width: 200, height: 160)
++            .overlay { if show { Text("Loading chat").padding(.top, 100) } }
++            .task(id: id) {
++                if CommandLine.arguments.contains("--seed-warning") {
++                    FileHandle.standardError.write(Data("Publishing changes from within view updates is not allowed\n".utf8))
++                }
++                guard CommandLine.arguments.contains("--seed-flash") else { return }
++                show = true
++                try? await Task.sleep(for: .milliseconds(350))
++                show = false
++            }
++    }
++}

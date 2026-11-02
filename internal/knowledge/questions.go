@@ -201,6 +201,22 @@ func ClassFromCheck(check string) string {
 		return "animation"
 	case sensors.CheckFooterDrift, sensors.CheckCadenceJitter, sensors.CheckIdleChurn:
 		return "layout_jitter"
+	case sensors.AXUnlabelled:
+		return "guidance_missing"
+	case sensors.AXOverlap:
+		return "overlap"
+	case sensors.AXClipped, sensors.AXCutText:
+		return "truncation"
+	case sensors.AXSmallHit:
+		return "inconsistency"
+	case sensors.AXBlank, sensors.AXInert, sensors.AXCrash, sensors.LogWarning:
+		return "behaviour"
+	case sensors.DriftAdded, sensors.DriftGone, sensors.DriftMoved, sensors.DriftPixels:
+		return "inconsistency"
+	case sensors.AXFlash:
+		return "animation"
+	case sensors.AXShift:
+		return "layout_jitter"
 	default:
 		return "other"
 	}

@@ -45,6 +45,10 @@ func main() {
 		}
 	case "polymux":
 		os.Exit(polymuxCommand(os.Args[2:], os.Stdout, os.Stderr))
+	case "intent":
+		os.Exit(intentCommand(os.Args[2:], os.Stdout, os.Stderr))
+	case "baseline":
+		os.Exit(baselineCommand(os.Args[2:], os.Stdout, os.Stderr))
 	case "run":
 		if err := runCommand(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "argus: %v\n", err)
@@ -89,6 +93,10 @@ func usage() {
   argus triage  label|list|stats|calibrate|reset
   argus bench polymux --corpus benchmark/polymux --polymux CHECKOUT --out DIR
   argus polymux --repo DIR [--changed FILES] [--quick] --out DIR
+  argus polymux ui --repo DIR --out DIR [--changed FILES] [--journeys N] [--parallel N]
+                   [--steps N] [--shard I/N] [--provider NAME] [--replay DIR] [--no-baseline]
+  argus intent  list|add|confirm|remove --repo DIR
+  argus baseline list|approve --repo DIR
   argus version
 
 triage:

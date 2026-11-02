@@ -124,6 +124,12 @@ func (w *Writer) writeGUIEvidence(finding *run.Finding) error {
 	}
 	accent := severityColour(finding.Severity)
 	still := frames[len(frames)-1]
+	// Steps run closer together than this window, so prefer the frame it was seen on.
+	for _, frame := range frames {
+		if frame.T == finding.LastSeen {
+			still = frame
+		}
+	}
 	stillBytes := screen.EncodeImagePNG(screen.AnnotateImage(still.Image, finding.Region, accent))
 	stillName := fmt.Sprintf("stills/%s.png", finding.ID)
 	if err := os.WriteFile(filepath.Join(w.Dir, stillName), stillBytes, 0o644); err != nil {

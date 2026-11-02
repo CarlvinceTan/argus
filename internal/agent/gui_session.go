@@ -91,6 +91,12 @@ type guiAction struct {
 	Point [2]int
 	Size  [2]int
 	URL   string
+	// Native actions target an element by key instead of a point.
+	Element string
+	Text    string
+	// Group is the part of the window an action belongs to, so a sweep with no
+	// model visits every part instead of walking one long list.
+	Group string
 }
 
 // buildGUIActions derives a bounded action space from the window size. GUI
@@ -544,6 +550,7 @@ type guiExplorer struct {
 	cfg      config.Config
 	set      provider.Set
 	tried    map[string]bool
+	groups   map[string]int
 	history  []string
 	calls    int
 	tokens   int
@@ -552,7 +559,7 @@ type guiExplorer struct {
 }
 
 func newGUIExplorer(cfg config.Config, set provider.Set) *guiExplorer {
-	return &guiExplorer{cfg: cfg, set: set, tried: map[string]bool{}}
+	return &guiExplorer{cfg: cfg, set: set, tried: map[string]bool{}, groups: map[string]int{}}
 }
 
 func (e *guiExplorer) usage() (int, int, float64) { return e.calls, e.tokens, e.cost }
@@ -572,7 +579,7 @@ func (e *guiExplorer) next(
 	if len(fresh) == 0 {
 		return guiAction{}, false
 	}
-	if description == "" || e.calls >= e.cfg.Limits.MaxDecisions {
+	if description == "" || e.set.Decisions == nil || e.calls >= e.cfg.Limits.MaxDecisions {
 		return e.takeDeterministic(fresh), true
 	}
 	criteria := map[string]string{}
@@ -615,6 +622,15 @@ func (e *guiExplorer) markAllUntried(actions []guiAction) {
 }
 
 func (e *guiExplorer) takeDeterministic(fresh []guiAction) guiAction {
+	if fresh[0].Group != "" {
+		best := fresh[0]
+		for _, action := range fresh[1:] {
+			if e.groups[action.Group] < e.groups[best.Group] {
+				best = action
+			}
+		}
+		return e.take(best)
+	}
 	action := fresh[e.fallback%len(fresh)]
 	e.fallback++
 	return e.take(action)
@@ -622,6 +638,7 @@ func (e *guiExplorer) takeDeterministic(fresh []guiAction) guiAction {
 
 func (e *guiExplorer) take(action guiAction) guiAction {
 	e.tried[action.ID] = true
+	e.groups[action.Group]++
 	e.history = append(e.history, action.Label)
 	if len(e.history) > 10 {
 		e.history = e.history[len(e.history)-10:]

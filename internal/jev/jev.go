@@ -117,6 +117,7 @@ type Client struct {
 	httpc     *http.Client
 	cacheDir  string
 	cacheable bool
+	headers   map[string]string
 
 	mu         sync.Mutex
 	calls      int
@@ -132,6 +133,17 @@ func WithCache(dir string) Option {
 	return func(c *Client) {
 		c.cacheDir = dir
 		c.cacheable = dir != ""
+	}
+}
+
+// WithHeader sends an extra header on every request, for gateways that route
+// on one (OpenCode wants a session id and a client user agent).
+func WithHeader(name, value string) Option {
+	return func(c *Client) {
+		if c.headers == nil {
+			c.headers = map[string]string{}
+		}
+		c.headers[name] = value
 	}
 }
 
@@ -353,6 +365,9 @@ func (c *Client) post(ctx context.Context, encoded []byte) (decisionsResponse, e
 			return decisionsResponse{}, fmt.Errorf("building request: %w", err)
 		}
 		request.Header.Set("Content-Type", "application/json")
+		for name, value := range c.headers {
+			request.Header.Set(name, value)
+		}
 		if c.apiKey != "" {
 			request.Header.Set("Authorization", "Bearer "+c.apiKey)
 		}

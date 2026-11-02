@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/carlvincetan/argus/internal/config"
+	"github.com/carlvincetan/argus/internal/intent"
 	"github.com/carlvincetan/argus/internal/jev"
 	"github.com/carlvincetan/argus/internal/knowledge"
 	"github.com/carlvincetan/argus/internal/provider"
@@ -59,6 +60,8 @@ type Auditor struct {
 	cfg         config.Config
 	providers   provider.Set
 	calibration triage.Calibration
+	intents     *intent.Ledger
+	journey     string
 	kind        string
 	persona     knowledge.Persona
 	mu          sync.Mutex
@@ -89,6 +92,32 @@ func NewAuditor(cfg config.Config, providers provider.Set) *Auditor {
 		findings:    map[string]*run.Finding{},
 		rejected:    []run.Finding{},
 	}
+}
+
+// SetIntents gives the auditor the app's ledger of intentional behaviour.
+func (a *Auditor) SetIntents(ledger *intent.Ledger, journey string) {
+	a.intents, a.journey = ledger, journey
+}
+
+// applyIntent keeps a finding the app has declared intentional out of the backlog.
+// It stays in run.json, and a stale intent suppresses nothing: the sources behind
+// it changed, so someone has to look again.
+func (a *Auditor) applyIntent(finding *run.Finding) {
+	element := finding.Feature
+	if element == "" {
+		element = finding.Title
+	}
+	entry, ok := a.intents.Match(finding.Check, element, a.journey)
+	if !ok {
+		return
+	}
+	if a.intents.Stale(entry.ID) {
+		finding.Tags = append(finding.Tags, run.TagStaleIntent+entry.ID)
+		finding.Detail = strings.TrimSpace(finding.Detail + " | intent " + entry.ID + " is stale: its sources changed since it was confirmed")
+		return
+	}
+	finding.Intentional = true
+	finding.Tags = append(finding.Tags, run.TagIntent+entry.ID)
 }
 
 // Calibration reports the calibration this auditor is using.
@@ -722,6 +751,12 @@ func (a *Auditor) reportable(finding run.Finding) bool {
 
 // merge deduplicates a finding into the set, keeping the strongest evidence.
 func (a *Auditor) merge(finding run.Finding) run.Finding {
+	a.applyIntent(&finding)
+	// A native element is the same problem wherever a resize moved it.
+	if strings.HasPrefix(finding.Check, "structure_ax") {
+		finding.ID = run.FindingID(finding.Check, finding.Group, finding.Class+"|"+finding.Feature, screen.Region{})
+		return a.mergeInto(finding.ID, finding)
+	}
 	// Screen-wide findings (policy, unstated expectations, whole-screen defects)
 	// are identified per page rather than per row: the same missing affordance
 	// should not be reported once per row it happens to be spotted on.

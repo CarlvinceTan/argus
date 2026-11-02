@@ -87,6 +87,9 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 	var decisions DecisionProvider
 	var vision VisionProvider
 	switch cfg.Provider {
+	case "none":
+		// Measurements only: no model is called and nothing leaves the machine.
+		return Set{Manifest: Manifest{Provider: cfg.Provider, Limits: cfg.Limits, Thresholds: cfg.Thresholds}}, nil
 	case "local":
 		decisions = NewLocalDecisions(cfg)
 		if wantVision {
@@ -110,7 +113,7 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 		if !cfg.CacheEnabled {
 			client = jev.NewClient(cfg.JevEndpoint, cfg.JevModel, cfg.CompatKey, cfg.Limits.DecisionTimeout)
 		}
-		decisions = &openRouterDecisions{client: client}
+		decisions = &openRouterDecisions{client: client, labels: decisionLabels("")}
 		// System One / DiffusionGemma has a vision tower and is itself the
 		// calibrated screenshot reader. A separate hosted VLM is opt-in.
 		if wantVision && os.Getenv("ARGUS_SYSTEMONE_USE_HOSTED_VISION") == "1" {
@@ -126,10 +129,25 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 		if !cfg.CacheEnabled {
 			client = jev.NewClient(cfg.JevEndpoint, cfg.JevModel, cfg.CompatKey, cfg.Limits.DecisionTimeout)
 		}
-		decisions = &openRouterDecisions{client: client}
+		decisions = &openRouterDecisions{client: client, labels: decisionLabels("")}
 		if wantVision {
 			vision = NewHostedVision(cfg)
 		}
+	case "opencode":
+		// TypeSafe Jev on OpenCode's Console API: the native System One schema,
+		// so labels keep their descriptions and questions share calls.
+		if cfg.OpenCodeKey == "" {
+			return Set{}, errors.New("no OpenCode key: set OPENCODE_API_KEY or run `opencode auth login`")
+		}
+		options := []jev.Option{
+			jev.WithHeader("User-Agent", "argus/1"),
+			jev.WithHeader("x-opencode-session", fmt.Sprintf("argus-%d-%d", os.Getpid(), time.Now().Unix())),
+		}
+		if cfg.CacheEnabled {
+			options = append(options, jev.WithCache(cfg.CacheDir))
+		}
+		client := jev.NewClient(cfg.JevEndpoint, cfg.JevModel, cfg.OpenCodeKey, cfg.Limits.DecisionTimeout, options...)
+		decisions = &openRouterDecisions{client: client, labels: decisionLabels("native")}
 	case "commandcode":
 		if cfg.CompatKey == "" {
 			return Set{}, errors.New("no commandcode credential found in the local opencode configuration")
@@ -146,7 +164,7 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 		if cfg.OpenRouter == "" {
 			return Set{}, errors.New("no OpenRouter credential: set OPENROUTER_API_KEY")
 		}
-		decisions = &openRouterDecisions{client: client}
+		decisions = &openRouterDecisions{client: client, labels: decisionLabels("")}
 		if wantVision {
 			vision = NewHostedVision(cfg)
 		}
@@ -168,6 +186,31 @@ func Build(cfg config.Config, wantVision bool) (Set, error) {
 // openRouterDecisions serves TypeSafe Jev through OpenRouter's decisions router.
 type openRouterDecisions struct {
 	client *jev.Client
+	// labels is how this endpoint wants choice and score labels: "native" (Jev's
+	// own schema, many questions per call) or "tokens" (single-token labels, one
+	// question per call, which DiffusionGemma's System One needs). Empty infers
+	// it from the endpoint, as before.
+	labels string
+}
+
+// decisionLabels is the label dialect for a System One endpoint:
+// ARGUS_JEV_LABELS when set, else what the provider knows, else inferred.
+func decisionLabels(known string) string {
+	switch value := strings.ToLower(strings.TrimSpace(os.Getenv("ARGUS_JEV_LABELS"))); value {
+	case "native", "tokens":
+		return value
+	}
+	return known
+}
+
+func (o *openRouterDecisions) tokenLabels() bool {
+	switch o.labels {
+	case "native":
+		return false
+	case "tokens":
+		return true
+	}
+	return strings.HasSuffix(o.client.Endpoint, "/v1/systemone")
 }
 
 func (o *openRouterDecisions) Name() string {
@@ -215,7 +258,7 @@ func (o *openRouterDecisions) DecideWithImages(
 ) (jev.Result, error) {
 	limit := maxQuestionsPerCall
 	aliases := systemOneAliases{}
-	if strings.HasSuffix(o.client.Endpoint, "/v1/systemone") {
+	if o.tokenLabels() {
 		questions, aliases = systemOneQuestions(questions)
 		// The public diffusion endpoint tokenizes every label; isolate reads so
 		// vocabularies from neighbouring questions cannot collide.
@@ -750,8 +793,27 @@ func (l *CompatDecisions) Decide(
 // (which carries the judgement rules) intact.
 func buildLocalPrompt(state any, questions map[string]jev.Question) string {
 	var b strings.Builder
-	b.WriteString("SCREEN:\n")
+	typed, isMap := state.(map[string]any)
+	if _, isScreen := typed["screen"]; isMap && !isScreen {
+		// Not a screen (the change filter, for one): every key is the evidence,
+		// so none may be dropped by the screen layout below.
+		b.WriteString("STATE:\n")
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			if encoded, err := json.Marshal(typed[key]); err == nil {
+				fmt.Fprintf(&b, "\n%s: %s\n", strings.ToUpper(key), string(encoded))
+			}
+		}
+		state = nil
+	} else {
+		b.WriteString("SCREEN:\n")
+	}
 	switch typed := state.(type) {
+	case nil:
 	case map[string]any:
 		if screen, ok := typed["screen"].(map[string]any); ok {
 			if text, ok := screen["text"].(string); ok {

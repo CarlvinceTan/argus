@@ -356,6 +356,22 @@ func renderState(state any) (string, error) {
 	switch typed := state.(type) {
 	case map[string]any:
 		var builder strings.Builder
+		if _, isScreen := typed["screen"]; !isScreen {
+			// Not a screen (the change filter, for one): every key is evidence.
+			keys := make([]string, 0, len(typed))
+			for key := range typed {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				encoded, err := json.Marshal(typed[key])
+				if err != nil {
+					return "", err
+				}
+				fmt.Fprintf(&builder, "%s: %s\n", strings.ToUpper(key), encoded)
+			}
+			return builder.String(), nil
+		}
 		if screen, ok := typed["screen"].(map[string]any); ok {
 			if text, ok := screen["text"].(string); ok {
 				builder.WriteString("SCREEN:\n")

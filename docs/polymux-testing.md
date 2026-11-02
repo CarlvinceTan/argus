@@ -21,7 +21,21 @@ model-driven test agent running inside Polymux.
   argus ...
   ```
 
-- **Open item (tracked; see the Open items list in RUN.md section 5):** confirm the OpenCode Go base URL and how the key is supplied.
+- **Checked 2 Nov 2026 against OpenCode's docs:** Go's endpoints are under
+  `https://opencode.ai/inference/go/` (for example
+  `openai/v1/chat/completions` for DeepSeek, GLM and Kimi, and
+  `anthropic/v1/messages` for Qwen and MiniMax). Requests need an
+  `x-opencode-session` header (a stable id per conversation) and a client user
+  agent. Polymux's `POLYMUX_MODEL_URL` still names the older
+  `https://opencode.ai/zen/go/v1`. Jev is not on the Go plan: it is on the
+  Console (Zen) API at `https://opencode.ai/inference/systemone/v1/systemone`
+  (`jev-1.13`, or `jev-1.13-free` for a limited time), which `--provider
+  opencode` uses. The key opencode saved for `opencode-go` on this Mac is
+  rejected ("Invalid credential"); the key in `POLYMUX_MODEL_KEY` works. With
+  it, `jev-1.13` needs Console funds (HTTP 402 on a Go-only account) and
+  `jev-1.13-free` answers: pass `OPENCODE_API_KEY` and
+  `ARGUS_JEV_MODEL=jev-1.13-free`.
+- **Open item (tracked; see the Open items list in RUN.md section 5):** a chat-model provider for OpenCode Go itself.
   OpenCode keeps the Go credential in its auth store, but
   `loadOpenCodeProviderKey` only reads `opencode.json` provider options, so the
   key is not picked up automatically. A native `--provider opencodego` should

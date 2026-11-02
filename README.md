@@ -1,5 +1,10 @@
 # Argus
 
+**Objective:** a very powerful tool for maintaining UI/UX, built for agents and
+humans to use. Argus should map an app's full state, understand what is right
+and wrong with its UI/UX, and discover problems in its screens and user flows
+on its own. It is a standalone tool: the apps it tests never depend on it.
+
 Argus is an autonomous UI defect hunter. It drives a terminal (or, by extension,
 any GUI with a harness) in an isolated environment, watches what the interface
 does frame by frame, and reports the problems it can defend: broken borders,
